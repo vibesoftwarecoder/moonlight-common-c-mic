@@ -30,10 +30,11 @@ extern "C" {
 #define COLOR_RANGE_FULL     1
 
 // Values for 'encryptionFlags' field below
-#define ENCFLG_NONE  0x00000000
-#define ENCFLG_AUDIO 0x00000001
-#define ENCFLG_VIDEO 0x00000002
-#define ENCFLG_ALL   0xFFFFFFFF
+#define ENCFLG_NONE       0x00000000
+#define ENCFLG_AUDIO      0x00000001
+#define ENCFLG_VIDEO      0x00000002
+#define ENCFLG_MICROPHONE 0x00000004
+#define ENCFLG_ALL        0xFFFFFFFF
 
 // This function returns a string that you SHOULD append to the /launch and /resume
 // query parameter string. This is used to enable certain extended functionality
@@ -100,6 +101,9 @@ typedef struct _STREAM_CONFIGURATION {
     // in /launch and /resume requests.
     char remoteInputAesKey[16];
     char remoteInputAesIv[16];
+
+    // Enables client-to-host microphone streaming when negotiated with the host.
+    bool enableMic;
 } STREAM_CONFIGURATION, *PSTREAM_CONFIGURATION;
 
 // Use this function to zero the stream configuration when allocated on the stack or heap
@@ -382,7 +386,8 @@ void LiInitializeAudioCallbacks(PAUDIO_RENDERER_CALLBACKS arCallbacks);
 #define STAGE_VIDEO_STREAM_START 9
 #define STAGE_AUDIO_STREAM_START 10
 #define STAGE_INPUT_STREAM_START 11
-#define STAGE_MAX 12
+#define STAGE_MICROPHONE_STREAM_INIT 12
+#define STAGE_MAX 13
 
 // This callback is invoked to indicate that a stage of initialization is about to begin
 typedef void(*ConnListenerStageStarting)(int stage);
@@ -562,6 +567,15 @@ void LiInterruptConnection(void);
 // Use to get a user-visible string to display initialization progress
 // from the integer passed to the ConnListenerStageXXX callbacks
 const char* LiGetStageName(int stage);
+
+// Sends a single Opus-encoded microphone packet to the host.
+int LiSendMicrophoneOpusData(const unsigned char* opusData, int opusLength);
+
+// Indicates whether microphone packets are currently encrypted.
+bool LiIsMicrophoneEncryptionEnabled(void);
+
+// Indicates whether the host negotiated and initialized the microphone stream.
+bool LiIsMicrophoneStreamActive(void);
 
 // This function returns an estimate of the current RTT to the host PC obtained via ENet
 // protocol statistics. This function will fail if the current GFE version does not use
