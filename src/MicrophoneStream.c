@@ -3,11 +3,13 @@
 
 #define MIC_IV_LEN 16
 #define MIC_HEADER_FLAGS 0x00
+#define MIC_DEFAULT_FRAME_DURATION_SAMPLES 960
 
 static SOCKET micSocket = INVALID_SOCKET;
 static PPLT_CRYPTO_CONTEXT micEncryptionCtx = NULL;
 static uint32_t micRiKeyId = 0;
 static uint16_t micSequenceNumber = 0;
+static uint32_t micTimestamp = 0;
 
 #pragma pack(push, 1)
 typedef struct _MICROPHONE_PACKET_HEADER {
@@ -32,6 +34,7 @@ int initializeMicrophoneStream(void) {
     memcpy(&micRiKeyId, StreamConfig.remoteInputAesIv, sizeof(micRiKeyId));
     micRiKeyId = BE32(micRiKeyId);
     micSequenceNumber = 0;
+    micTimestamp = 0;
 
     micSocket = bindUdpSocket(RemoteAddr.ss_family, &LocalAddr, AddrLen, 0, SOCK_QOS_TYPE_AUDIO);
     if (micSocket == INVALID_SOCKET) {
@@ -56,9 +59,14 @@ void destroyMicrophoneStream(void) {
 
     micRiKeyId = 0;
     micSequenceNumber = 0;
+    micTimestamp = 0;
 }
 
 int LiSendMicrophoneOpusData(const unsigned char* opusData, int opusLength) {
+    return LiSendMicrophoneOpusDataEx(opusData, opusLength, MIC_DEFAULT_FRAME_DURATION_SAMPLES);
+}
+
+int LiSendMicrophoneOpusDataEx(const unsigned char* opusData, int opusLength, uint32_t frameDurationSamples) {
     LC_SOCKADDR saddr;
     MICROPHONE_PACKET_HEADER header;
     unsigned char packet[MAX_MIC_PACKET_SIZE];
@@ -78,7 +86,7 @@ int LiSendMicrophoneOpusData(const unsigned char* opusData, int opusLength) {
     header.flags = MIC_HEADER_FLAGS;
     header.packetType = MIC_PACKET_TYPE_OPUS;
     header.sequenceNumber = LE16(micSequenceNumber);
-    header.timestamp = LE32((uint32_t)PltGetMillis());
+    header.timestamp = LE32(micTimestamp);
     header.ssrc = LE32(MIC_PACKET_MAGIC);
 
     if ((EncryptionFeaturesEnabled & SS_ENC_MICROPHONE) && micEncryptionCtx != NULL) {
@@ -123,6 +131,7 @@ int LiSendMicrophoneOpusData(const unsigned char* opusData, int opusLength) {
     }
 
     ++micSequenceNumber;
+    micTimestamp += frameDurationSamples != 0 ? frameDurationSamples : MIC_DEFAULT_FRAME_DURATION_SAMPLES;
 
     memcpy(&saddr, &RemoteAddr, sizeof(saddr));
     SET_PORT(&saddr, MicPortNumber);
