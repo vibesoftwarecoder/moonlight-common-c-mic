@@ -47,6 +47,8 @@ static uint8_t currentPenButtonState;
 #define TOUCH_EVENT_IS_BATCHABLE(x) ((x) == LI_TOUCH_EVENT_HOVER || (x) == LI_TOUCH_EVENT_MOVE)
 
 // Contains input stream packets
+static int currentInputTargetStream;
+
 typedef struct _PACKET_HOLDER {
     LINKED_BLOCKING_QUEUE_ENTRY entry;
     uint32_t enetPacketFlags;
@@ -67,6 +69,7 @@ typedef struct _PACKET_HOLDER {
         SS_HSCROLL_PACKET hscroll;
         NV_HAPTICS_PACKET haptics;
         SS_TOUCH_PACKET touch;
+        AP_STREAM_TARGET_PACKET streamTarget;
         SS_PEN_PACKET pen;
         SS_CONTROLLER_ARRIVAL_PACKET controllerArrival;
         SS_CONTROLLER_TOUCH_PACKET controllerTouch;
@@ -94,6 +97,7 @@ static struct {
 
 // Initializes the input stream
 int initializeInputStream(void) {
+    currentInputTargetStream = 0;
     memcpy(currentAesIv, StreamConfig.remoteInputAesIv, sizeof(currentAesIv));
 
     // Set a high maximum queue size limit to ensure input isn't dropped
@@ -1683,4 +1687,46 @@ int LiSendControllerBatteryEvent(uint8_t controllerNumber, uint8_t batteryState,
     }
 
     return err;
+}
+
+int LiSetInputTargetStream(int streamIndex) {
+    PPACKET_HOLDER holder;
+    int err;
+
+    if (!initialized) {
+        return -2;
+    }
+
+    if (streamIndex == currentInputTargetStream) {
+        return 0;
+    }
+
+    // Only the second stream can be targeted, and only when the host agreed to send it
+    if (streamIndex != 0 && (streamIndex != 1 || !SecondVideoStreamActive)) {
+        return LI_ERR_UNSUPPORTED;
+    }
+
+    holder = allocatePacketHolder(0);
+    if (holder == NULL) {
+        return -1;
+    }
+
+    // Same channel as the absolute mouse events, so the host sees this before the events that follow it
+    holder->channelId = CTRL_CHANNEL_MOUSE;
+    holder->enetPacketFlags = ENET_PACKET_FLAG_RELIABLE;
+
+    holder->packet.streamTarget.header.size = BE32(sizeof(AP_STREAM_TARGET_PACKET) - sizeof(uint32_t));
+    holder->packet.streamTarget.header.magic = LE32(AP_STREAM_TARGET_MAGIC);
+    holder->packet.streamTarget.streamIndex = LE32((uint32_t)streamIndex);
+
+    err = LbqOfferQueueItem(&packetQueue, holder, &holder->entry);
+    if (err != LBQ_SUCCESS) {
+        LC_ASSERT(err == LBQ_BOUND_EXCEEDED);
+        Limelog("Input queue reached maximum size limit\n");
+        freePacketHolder(holder);
+        return err;
+    }
+
+    currentInputTargetStream = streamIndex;
+    return 0;
 }

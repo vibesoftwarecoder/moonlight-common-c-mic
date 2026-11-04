@@ -634,6 +634,13 @@ int LiSendMouseMoveEvent(short deltaX, short deltaY);
 // referenceWidth and referenceHeight to your window width and height.
 int LiSendMousePositionEvent(short x, short y, short referenceWidth, short referenceHeight);
 
+// Names the video stream (0 = the first, 1 = the second) that the absolute pointer, touch and pen input sent after
+// this call belongs to, so the host maps positions onto that stream's picture. Call it when the pointer moves
+// into the other window, then send a fresh position event: a position queued just before the change may still be
+// mapped for the old stream. Touch and pen input travel on their own channels and may overtake the change.
+// Returns LI_ERR_UNSUPPORTED if the stream is not active on this connection.
+int LiSetInputTargetStream(int streamIndex);
+
 // This function queues a mouse position update event to be sent to the remote server, so
 // all of the limitations of LiSendMousePositionEvent() mentioned above apply here too!
 //

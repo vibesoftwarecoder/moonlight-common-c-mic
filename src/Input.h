@@ -123,6 +123,13 @@ typedef struct _SS_HSCROLL_PACKET {
     short scrollAmount;
 } SS_HSCROLL_PACKET, *PSS_HSCROLL_PACKET;
 
+// ApolloVibe protocol extension: names the video stream the following absolute pointer input belongs to
+#define AP_STREAM_TARGET_MAGIC 0x8000AB10
+typedef struct _AP_STREAM_TARGET_PACKET {
+    NV_INPUT_HEADER header;
+    uint32_t streamIndex; // Little Endian
+} AP_STREAM_TARGET_PACKET, *PAP_STREAM_TARGET_PACKET;
+
 #define SS_TOUCH_MAGIC 0x55000002
 typedef struct _SS_TOUCH_PACKET {
     NV_INPUT_HEADER header;
