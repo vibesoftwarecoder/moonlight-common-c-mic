@@ -24,6 +24,8 @@ extern CONNECTION_LISTENER_CALLBACKS ListenerCallbacks;
 extern DECODER_RENDERER_CALLBACKS VideoCallbacks;
 extern DECODER_RENDERER_CALLBACKS VideoCallbacks2;
 extern bool HasVideoCallbacks2;
+extern void* VideoRendererContext2;
+extern int VideoDrFlags2;
 extern AUDIO_RENDERER_CALLBACKS AudioCallbacks;
 extern int NegotiatedVideoFormat;
 extern volatile bool ConnectionInterrupted;

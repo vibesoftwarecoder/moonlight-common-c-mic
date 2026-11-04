@@ -17,6 +17,10 @@ CONNECTION_LISTENER_CALLBACKS ListenerCallbacks;
 DECODER_RENDERER_CALLBACKS VideoCallbacks;
 DECODER_RENDERER_CALLBACKS VideoCallbacks2;
 bool HasVideoCallbacks2;
+void* VideoRendererContext2;
+int VideoDrFlags2;
+static bool secondVideoStreamInitialized;
+static bool secondVideoStreamStarted;
 AUDIO_RENDERER_CALLBACKS AudioCallbacks;
 int NegotiatedVideoFormat;
 volatile bool ConnectionInterrupted;
@@ -101,6 +105,10 @@ void LiStopConnection(void) {
     }
     if (stage == STAGE_VIDEO_STREAM_START) {
         Limelog("Stopping video stream...");
+        if (secondVideoStreamStarted) {
+            stopVideoStreamInstance(1);
+            secondVideoStreamStarted = false;
+        }
         stopVideoStream();
         stage--;
         Limelog("done\n");
@@ -119,6 +127,10 @@ void LiStopConnection(void) {
     }
     if (stage == STAGE_VIDEO_STREAM_INIT) {
         Limelog("Cleaning up video stream...");
+        if (secondVideoStreamInitialized) {
+            destroyVideoStreamInstance(1);
+            secondVideoStreamInitialized = false;
+        }
         destroyVideoStream();
         stage--;
         Limelog("done\n");
@@ -281,6 +293,8 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
     VideoPortNumber = 0;
     VideoPortNumber2 = 0;
     SecondVideoStreamActive = false;
+    secondVideoStreamInitialized = false;
+    secondVideoStreamStarted = false;
     ControlPortNumber = 0;
     AudioPortNumber = 0;
 
@@ -482,6 +496,12 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
     Limelog("Initializing video stream...");
     ListenerCallbacks.stageStarting(STAGE_VIDEO_STREAM_INIT);
     initializeVideoStream();
+
+    // The second video stream, when the host agreed to one
+    if (SecondVideoStreamActive) {
+        initializeVideoStreamInstance(1);
+        secondVideoStreamInitialized = true;
+    }
     stage++;
     LC_ASSERT(stage == STAGE_VIDEO_STREAM_INIT);
     ListenerCallbacks.stageComplete(STAGE_VIDEO_STREAM_INIT);
@@ -516,6 +536,23 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
         ListenerCallbacks.stageFailed(STAGE_VIDEO_STREAM_START, err);
         goto Cleanup;
     }
+
+    // A second video stream that cannot start does not fail the connection: it simply has one stream.
+    if (secondVideoStreamInitialized) {
+        int secondErr;
+
+        setVideoStreamParams(1, &VideoCallbacks2, StreamConfig.secondVideoWidth, StreamConfig.secondVideoHeight,
+                             StreamConfig.secondVideoFps, VideoPortNumber2, &VideoPingPayload2);
+        secondErr = startVideoStreamInstance(1, VideoRendererContext2, VideoDrFlags2);
+        if (secondErr != 0) {
+            Limelog("Second video stream start failed: %d; continuing with one video stream\n", secondErr);
+            SecondVideoStreamActive = false;
+        }
+        else {
+            secondVideoStreamStarted = true;
+        }
+    }
+
     stage++;
     LC_ASSERT(stage == STAGE_VIDEO_STREAM_START);
     ListenerCallbacks.stageComplete(STAGE_VIDEO_STREAM_START);
@@ -587,8 +624,10 @@ const char* LiGetLaunchUrlQueryParameters(void) {
     return "&corever=1";
 }
 
-void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks) {
+void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks, void* rendererContext, int drFlags) {
     memcpy(&VideoCallbacks2, drCallbacks, sizeof(VideoCallbacks2));
+    VideoRendererContext2 = rendererContext;
+    VideoDrFlags2 = drFlags;
     HasVideoCallbacks2 = true;
 }
 

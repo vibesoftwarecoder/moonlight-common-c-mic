@@ -1172,6 +1172,9 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
         if (StreamConfig.enableSecondVideoStream && !hostSupportsSecondVideo) {
             Limelog("Host does not offer a second video stream; continuing with one\n");
         }
+        if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo && !HasVideoCallbacks2) {
+            Limelog("No decoder callbacks were set for the second video stream; continuing with one\n");
+        }
 
         // Parse the Opus surround parameters out of the RTSP DESCRIBE response.
         ret = parseOpusConfigurations(&response);
@@ -1306,7 +1309,7 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
 
     // The second video stream shares the video port; the host tells the two apart by their ping payloads.
     // If the host does not take it, the connection carries on with one stream.
-    if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo) {
+    if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo && HasVideoCallbacks2) {
         RTSP_MESSAGE response;
         int error = -1;
         char* pingPayload;

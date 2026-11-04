@@ -128,6 +128,19 @@ static void VideoPingThreadProc(void* context) {
     }
 }
 
+// A failure of the first stream ends the connection. A failure of another stream ends only that stream: the
+// first stream and the connection keep running, and anyone waiting for that stream's frames is woken.
+static void terminateVideoStream(PVIDEO_STREAM s, int errorCode) {
+    if (s->index == 0) {
+        ListenerCallbacks.connectionTerminated(errorCode);
+        return;
+    }
+
+    Limelog("Video stream %d ended (error %d); the connection continues\n", s->index, errorCode);
+    SecondVideoStreamActive = false;
+    stopVideoDepacketizer(getVideoDepacketizer(s->index));
+}
+
 // Receive thread proc
 static void VideoReceiveThreadProc(void* context) {
     PVIDEO_STREAM s = (PVIDEO_STREAM)context;
@@ -161,7 +174,7 @@ static void VideoReceiveThreadProc(void* context) {
         encryptedBuffer = (char*)malloc(receiveSize);
         if (encryptedBuffer == NULL) {
             Limelog("Video Receive: malloc() failed\n");
-            ListenerCallbacks.connectionTerminated(-1);
+            terminateVideoStream(s, -1);
             return;
         }
     }
@@ -177,7 +190,7 @@ static void VideoReceiveThreadProc(void* context) {
             buffer = (char*)malloc(bufferSize);
             if (buffer == NULL) {
                 Limelog("Video Receive: malloc() failed\n");
-                ListenerCallbacks.connectionTerminated(-1);
+                terminateVideoStream(s, -1);
                 break;
             }
         }
@@ -188,7 +201,7 @@ static void VideoReceiveThreadProc(void* context) {
                             useSelect);
         if (err < 0) {
             Limelog("Video Receive: recvUdpSocket() failed: %d\n", (int)LastSocketError());
-            ListenerCallbacks.connectionTerminated(LastSocketFail());
+            terminateVideoStream(s, LastSocketFail());
             break;
         }
         else if  (err == 0) {
@@ -198,7 +211,7 @@ static void VideoReceiveThreadProc(void* context) {
                 waitingForVideoMs += UDP_RECV_POLL_TIMEOUT_MS;
                 if (waitingForVideoMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
                     Limelog("Terminating connection due to lack of video traffic\n");
-                    ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_TRAFFIC);
+                    terminateVideoStream(s, ML_ERROR_NO_VIDEO_TRAFFIC);
                     break;
                 }
             }
@@ -218,7 +231,7 @@ static void VideoReceiveThreadProc(void* context) {
         if (!s->receivedFullFrame) {
             if (PltGetMillis() - s->firstDataTimeMs >= FIRST_FRAME_TIMEOUT_SEC * 1000) {
                 Limelog("Terminating connection due to lack of a successful video frame\n");
-                ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_FRAME);
+                terminateVideoStream(s, ML_ERROR_NO_VIDEO_FRAME);
                 break;
             }
         }

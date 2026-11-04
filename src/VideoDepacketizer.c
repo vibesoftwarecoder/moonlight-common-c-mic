@@ -282,9 +282,25 @@ bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* deco
     return waitForNextVideoFrame(getVideoDepacketizer(0), frameHandle, decodeUnit);
 }
 
+bool LiWaitForNextVideoFrameEx(int streamIndex, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
+    if (streamIndex < 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return false;
+    }
+    return waitForNextVideoFrame(getVideoDepacketizer(streamIndex), frameHandle, decodeUnit);
+}
+
 bool LiPollNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
-    PVIDEO_DEPACKETIZER d = getVideoDepacketizer(0);
+    return LiPollNextVideoFrameEx(0, frameHandle, decodeUnit);
+}
+
+bool LiPollNextVideoFrameEx(int streamIndex, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
+    PVIDEO_DEPACKETIZER d;
     PQUEUED_DECODE_UNIT qdu;
+
+    if (streamIndex < 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return false;
+    }
+    d = getVideoDepacketizer(streamIndex);
 
     int err = LbqPollQueueElement(&d->decodeUnitQueue, (void**)&qdu);
     if (err != LBQ_SUCCESS) {
@@ -299,8 +315,17 @@ bool LiPollNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeU
 }
 
 bool LiPeekNextVideoFrame(PDECODE_UNIT* decodeUnit) {
-    PVIDEO_DEPACKETIZER d = getVideoDepacketizer(0);
+    return LiPeekNextVideoFrameEx(0, decodeUnit);
+}
+
+bool LiPeekNextVideoFrameEx(int streamIndex, PDECODE_UNIT* decodeUnit) {
+    PVIDEO_DEPACKETIZER d;
     PQUEUED_DECODE_UNIT qdu;
+
+    if (streamIndex < 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return false;
+    }
+    d = getVideoDepacketizer(streamIndex);
 
     int err = LbqPeekQueueElement(&d->decodeUnitQueue, (void**)&qdu);
     if (err != LBQ_SUCCESS) {
@@ -314,8 +339,13 @@ bool LiPeekNextVideoFrame(PDECODE_UNIT* decodeUnit) {
 }
 
 void LiWakeWaitForVideoFrame(void) {
-    PVIDEO_DEPACKETIZER d = getVideoDepacketizer(0);
-    LbqSignalQueueUserWake(&d->decodeUnitQueue);
+    LiWakeWaitForVideoFrameEx(0);
+}
+
+void LiWakeWaitForVideoFrameEx(int streamIndex) {
+    if (streamIndex >= 0 && streamIndex < MAX_VIDEO_STREAMS) {
+        LbqSignalQueueUserWake(&getVideoDepacketizer(streamIndex)->decodeUnitQueue);
+    }
 }
 
 // Cleanup a decode unit by freeing the buffer chain and the holder
@@ -1233,6 +1263,12 @@ void queueRtpPacket(PVIDEO_DEPACKETIZER d, PRTPV_QUEUE_ENTRY queueEntryPtr) {
 }
 
 int LiGetPendingVideoFrames(void) {
-    PVIDEO_DEPACKETIZER d = getVideoDepacketizer(0);
-    return LbqGetItemCount(&d->decodeUnitQueue);
+    return LiGetPendingVideoFramesEx(0);
+}
+
+int LiGetPendingVideoFramesEx(int streamIndex) {
+    if (streamIndex < 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return 0;
+    }
+    return LbqGetItemCount(&getVideoDepacketizer(streamIndex)->decodeUnitQueue);
 }

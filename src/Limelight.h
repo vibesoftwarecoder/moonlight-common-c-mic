@@ -326,9 +326,10 @@ typedef struct _DECODER_RENDERER_CALLBACKS {
     int capabilities;
 } DECODER_RENDERER_CALLBACKS, *PDECODER_RENDERER_CALLBACKS;
 
-// Sets the decoder and renderer callbacks of the second video stream. Call it before LiStartConnection() when
-// enableSecondVideoStream is set. The callbacks are copied.
-void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks);
+// Sets the decoder and renderer callbacks of the second video stream, with the renderer context and flags that
+// the setup callback receives (the counterparts of the arguments of LiStartConnection()). Call it before
+// LiStartConnection() when enableSecondVideoStream is set. The callbacks are copied.
+void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks, void* rendererContext, int drFlags);
 
 // Whether the host agreed to send a second video stream on the current connection.
 bool LiIsSecondVideoStreamActive(void);
@@ -1010,6 +1011,14 @@ bool LiPollNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeU
 bool LiPeekNextVideoFrame(PDECODE_UNIT* decodeUnit);
 void LiWakeWaitForVideoFrame(void);
 void LiCompleteVideoFrame(VIDEO_FRAME_HANDLE handle, int drStatus);
+
+// The same calls for a specific video stream (0 = the first, 1 = the second). A handle from any stream is
+// completed with LiCompleteVideoFrame(). An out-of-range stream index behaves as an empty, stopped stream.
+bool LiWaitForNextVideoFrameEx(int streamIndex, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit);
+bool LiPollNextVideoFrameEx(int streamIndex, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit);
+bool LiPeekNextVideoFrameEx(int streamIndex, PDECODE_UNIT* decodeUnit);
+void LiWakeWaitForVideoFrameEx(int streamIndex);
+int LiGetPendingVideoFramesEx(int streamIndex);
 
 // This function returns the last reported HDR mode from the host PC.
 // See ConnListenerSetHdrMode() for more details.
