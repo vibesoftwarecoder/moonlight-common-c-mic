@@ -104,6 +104,17 @@ typedef struct _STREAM_CONFIGURATION {
 
     // Enables client-to-host microphone streaming when negotiated with the host.
     bool enableMic;
+
+    // Asks the host for a second video stream next to the first one, when the host offers it. The host captures
+    // secondVideoSource ("window:<title>") and sends it at the size, frame rate and bitrate given here. Frames
+    // arrive through the callbacks set with LiSetSecondVideoStreamCallbacks(). If the host does not offer a second
+    // stream, the connection simply has one.
+    bool enableSecondVideoStream;
+    char secondVideoSource[256];
+    int secondVideoWidth;
+    int secondVideoHeight;
+    int secondVideoFps;
+    int secondVideoBitrateKbps;
 } STREAM_CONFIGURATION, *PSTREAM_CONFIGURATION;
 
 // Use this function to zero the stream configuration when allocated on the stack or heap
@@ -314,6 +325,13 @@ typedef struct _DECODER_RENDERER_CALLBACKS {
     DecoderRendererSubmitDecodeUnit submitDecodeUnit;
     int capabilities;
 } DECODER_RENDERER_CALLBACKS, *PDECODER_RENDERER_CALLBACKS;
+
+// Sets the decoder and renderer callbacks of the second video stream. Call it before LiStartConnection() when
+// enableSecondVideoStream is set. The callbacks are copied.
+void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks);
+
+// Whether the host agreed to send a second video stream on the current connection.
+bool LiIsSecondVideoStreamActive(void);
 
 // Use this function to zero the video callbacks when allocated on the stack or heap
 void LiInitializeVideoCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks);

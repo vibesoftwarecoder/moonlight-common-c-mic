@@ -22,6 +22,8 @@ extern int AppVersionQuad[4];
 extern STREAM_CONFIGURATION StreamConfig;
 extern CONNECTION_LISTENER_CALLBACKS ListenerCallbacks;
 extern DECODER_RENDERER_CALLBACKS VideoCallbacks;
+extern DECODER_RENDERER_CALLBACKS VideoCallbacks2;
+extern bool HasVideoCallbacks2;
 extern AUDIO_RENDERER_CALLBACKS AudioCallbacks;
 extern int NegotiatedVideoFormat;
 extern volatile bool ConnectionInterrupted;
@@ -37,10 +39,13 @@ extern uint16_t RtspPortNumber;
 extern uint16_t ControlPortNumber;
 extern uint16_t AudioPortNumber;
 extern uint16_t VideoPortNumber;
+extern uint16_t VideoPortNumber2;
 extern uint16_t MicPortNumber;
 
 extern SS_PING AudioPingPayload;
 extern SS_PING VideoPingPayload;
+extern SS_PING VideoPingPayload2;
+extern bool SecondVideoStreamActive;
 extern SS_PING MicPingPayload;
 extern uint32_t ControlConnectData;
 

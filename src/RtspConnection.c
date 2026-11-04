@@ -944,6 +944,7 @@ bool parseSdpAttributeToInt(const char* payload, const char* name, int* val) {
 int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
     int ret;
     bool hostSupportsMic = false;
+    bool hostSupportsSecondVideo = false;
 
     LC_ASSERT(RtspPortNumber != 0);
 
@@ -955,6 +956,9 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
     AudioEncryptionEnabled = false;
     MicPortNumber = 0;
     memset(&MicPingPayload, 0, sizeof(MicPingPayload));
+    VideoPortNumber2 = 0;
+    SecondVideoStreamActive = false;
+    memset(&VideoPingPayload2, 0, sizeof(VideoPingPayload2));
     encryptedRtspEnabled = serverInfo->rtspSessionUrl && strstr(serverInfo->rtspSessionUrl, "rtspenc://");
     encryptionCtx = PltCreateCryptoContext();
     decryptionCtx = PltCreateCryptoContext();
@@ -1164,6 +1168,11 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
             Limelog("Host does not advertise negotiated microphone support; continuing without microphone passthrough\n");
         }
 
+        hostSupportsSecondVideo = strstr(response.payload, "a=x-ss-video[1].supported:1") != NULL;
+        if (StreamConfig.enableSecondVideoStream && !hostSupportsSecondVideo) {
+            Limelog("Host does not offer a second video stream; continuing with one\n");
+        }
+
         // Parse the Opus surround parameters out of the RTSP DESCRIBE response.
         ret = parseOpusConfigurations(&response);
         if (ret != 0) {
@@ -1293,6 +1302,45 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
         }
 
         freeMessage(&response);
+    }
+
+    // The second video stream shares the video port; the host tells the two apart by their ping payloads.
+    // If the host does not take it, the connection carries on with one stream.
+    if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo) {
+        RTSP_MESSAGE response;
+        int error = -1;
+        char* pingPayload;
+
+        if (!setupStream(&response, "streamid=video2/0/0", &error)) {
+            Limelog("RTSP SETUP streamid=video2 request failed: %d; continuing with one video stream\n", error);
+        }
+        else {
+            if (response.message.response.statusCode != 200) {
+                Limelog("RTSP SETUP streamid=video2 failed: %d; continuing with one video stream\n",
+                    response.message.response.statusCode);
+            }
+            else {
+                memset(&VideoPingPayload2, 0, sizeof(VideoPingPayload2));
+                pingPayload = getOptionContent(response.options, "X-SS-Ping-Payload");
+                if (pingPayload != NULL && strlen(pingPayload) == sizeof(VideoPingPayload2.payload)) {
+                    memcpy(VideoPingPayload2.payload, pingPayload, sizeof(VideoPingPayload2.payload));
+                }
+
+                if (VideoPingPayload2.payload[0] == 0) {
+                    // Without its own ping payload the host cannot tell this stream from the first one.
+                    Limelog("The host sent no ping payload for the second video stream; continuing with one video stream\n");
+                }
+                else {
+                    if (!parseServerPortFromTransport(&response, &VideoPortNumber2)) {
+                        VideoPortNumber2 = VideoPortNumber;
+                    }
+                    Limelog("Second video stream port: %u\n", VideoPortNumber2);
+                    SecondVideoStreamActive = true;
+                }
+            }
+
+            freeMessage(&response);
+        }
     }
 
     if (StreamConfig.enableMic && hostSupportsMic) {

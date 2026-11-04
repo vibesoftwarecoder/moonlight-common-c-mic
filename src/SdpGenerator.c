@@ -546,6 +546,19 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
         err |= addAttributeString(&optionHead, "x-nv-video[0].encoderCscMode", payloadStr);
     }
 
+    // The second video stream: what the host should capture and how to send it
+    if (SecondVideoStreamActive) {
+        err |= addAttributeString(&optionHead, "x-ss-video[1].source", StreamConfig.secondVideoSource);
+        snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.secondVideoWidth);
+        err |= addAttributeString(&optionHead, "x-ss-video[1].width", payloadStr);
+        snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.secondVideoHeight);
+        err |= addAttributeString(&optionHead, "x-ss-video[1].height", payloadStr);
+        snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.secondVideoFps);
+        err |= addAttributeString(&optionHead, "x-ss-video[1].fps", payloadStr);
+        snprintf(payloadStr, sizeof(payloadStr), "%d", StreamConfig.secondVideoBitrateKbps);
+        err |= addAttributeString(&optionHead, "x-ss-video[1].bitrateKbps", payloadStr);
+    }
+
     if (err == 0) {
         return optionHead;
     }

@@ -15,6 +15,8 @@ int AppVersionQuad[4];
 STREAM_CONFIGURATION StreamConfig;
 CONNECTION_LISTENER_CALLBACKS ListenerCallbacks;
 DECODER_RENDERER_CALLBACKS VideoCallbacks;
+DECODER_RENDERER_CALLBACKS VideoCallbacks2;
+bool HasVideoCallbacks2;
 AUDIO_RENDERER_CALLBACKS AudioCallbacks;
 int NegotiatedVideoFormat;
 volatile bool ConnectionInterrupted;
@@ -29,9 +31,12 @@ uint16_t RtspPortNumber;
 uint16_t ControlPortNumber;
 uint16_t AudioPortNumber;
 uint16_t VideoPortNumber;
+uint16_t VideoPortNumber2;
 uint16_t MicPortNumber;
 SS_PING AudioPingPayload;
 SS_PING VideoPingPayload;
+SS_PING VideoPingPayload2;
+bool SecondVideoStreamActive;
 SS_PING MicPingPayload;
 uint32_t ControlConnectData;
 uint32_t SunshineFeatureFlags;
@@ -274,6 +279,8 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
 
     // The values in RTSP SETUP will be used to populate these.
     VideoPortNumber = 0;
+    VideoPortNumber2 = 0;
+    SecondVideoStreamActive = false;
     ControlPortNumber = 0;
     AudioPortNumber = 0;
 
@@ -578,4 +585,13 @@ const char* LiGetLaunchUrlQueryParameters(void) {
     // v0 = Video encryption and control stream encryption v2
     // v1 = RTSP encryption
     return "&corever=1";
+}
+
+void LiSetSecondVideoStreamCallbacks(PDECODER_RENDERER_CALLBACKS drCallbacks) {
+    memcpy(&VideoCallbacks2, drCallbacks, sizeof(VideoCallbacks2));
+    HasVideoCallbacks2 = true;
+}
+
+bool LiIsSecondVideoStreamActive(void) {
+    return SecondVideoStreamActive;
 }
