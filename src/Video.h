@@ -75,6 +75,11 @@ typedef struct _SS_FRAME_FEC_STATUS {
 
 // Fields are little-endian
 #define SS_LTR_FRAME_ACK_PTYPE 0x0350
+
+// ApolloVibe protocol extension: control messages that name a video stream
+#define SS_IDR_STREAM_PTYPE 0x3100
+#define SS_RFI_STREAM_PTYPE 0x3101
+#define SS_STREAM_ENDED_PTYPE 0x3102
 typedef struct _SS_LTR_FRAME_ACK {
     uint32_t frameIndex;
     uint32_t reserved;

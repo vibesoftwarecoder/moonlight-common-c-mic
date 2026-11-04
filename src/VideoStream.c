@@ -507,3 +507,15 @@ int startVideoStream(void* rendererContext, int drFlags) {
 const RTP_VIDEO_STATS* LiGetRTPVideoStats(void) {
     return &videoStreams[0].rtpQueue.stats;
 }
+
+// The host ended a video stream other than the first. Wake anyone waiting for its frames and stop treating it as
+// active; the stream's threads are stopped with the connection.
+void notifyVideoStreamEnded(int streamIndex) {
+    if (streamIndex <= 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return;
+    }
+
+    Limelog("The host ended video stream %d\n", streamIndex);
+    SecondVideoStreamActive = false;
+    stopVideoDepacketizer(getVideoDepacketizer(streamIndex));
+}

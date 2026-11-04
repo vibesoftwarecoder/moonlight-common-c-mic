@@ -83,6 +83,10 @@ typedef struct _QUEUED_ASYNC_CALLBACK {
             uint8_t left[DS_EFFECT_PAYLOAD_SIZE];
             uint8_t right[DS_EFFECT_PAYLOAD_SIZE];
         } dsAdaptiveTrigger;
+        struct {
+            uint32_t streamIndex;
+            uint32_t reason;
+        } streamEnded;
     } data;
     LINKED_BLOCKING_QUEUE_ENTRY entry;
 } QUEUED_ASYNC_CALLBACK, *PQUEUED_ASYNC_CALLBACK;
@@ -140,6 +144,7 @@ static PPLT_CRYPTO_CONTEXT decryptionCtx;
 #define IDX_SET_MOTION_EVENT 10
 #define IDX_SET_RGB_LED 11
 #define IDX_DS_ADAPTIVE_TRIGGERS 12
+#define IDX_STREAM_ENDED 13 // not a packetTypes[] entry: SS_STREAM_ENDED_PTYPE is the same on every server generation
 
 #define CONTROL_STREAM_TIMEOUT_SEC 10
 #define CONTROL_STREAM_LINGER_TIMEOUT_SEC 2
@@ -994,6 +999,13 @@ static void asyncCallbackThreadFunc(void* context) {
             ListenerCallbacks.setHdrMode(hdrEnabled);
             break;
 
+        case IDX_STREAM_ENDED:
+            // Wake anyone blocked on that stream's frames first, then tell the app.
+            notifyVideoStreamEnded((int)queuedCb->data.streamEnded.streamIndex);
+            ListenerCallbacks.videoStreamEnded((int)queuedCb->data.streamEnded.streamIndex,
+                                               (int)queuedCb->data.streamEnded.reason);
+            break;
+
         case IDX_SET_MOTION_EVENT:
             // These events are infrequent and cannot be batched
             ListenerCallbacks.setMotionEventState(queuedCb->data.setMotionEventState.controllerNumber,
@@ -1024,7 +1036,8 @@ static bool needsAsyncCallback(unsigned short packetType) {
            packetType == packetTypes[IDX_SET_MOTION_EVENT] ||
            packetType == packetTypes[IDX_SET_RGB_LED] ||
            packetType == packetTypes[IDX_HDR_INFO] ||
-           packetType == packetTypes[IDX_DS_ADAPTIVE_TRIGGERS];
+           packetType == packetTypes[IDX_DS_ADAPTIVE_TRIGGERS] ||
+           packetType == SS_STREAM_ENDED_PTYPE;
 }
 
 static void queueAsyncCallback(PNVCTL_ENET_PACKET_HEADER_V1 ctlHdr, int packetLength) {
@@ -1084,6 +1097,11 @@ static void queueAsyncCallback(PNVCTL_ENET_PACKET_HEADER_V1 ctlHdr, int packetLe
         BbGetBytes(&bb, queuedCb->data.dsAdaptiveTrigger.left, DS_EFFECT_PAYLOAD_SIZE);
         BbGetBytes(&bb, queuedCb->data.dsAdaptiveTrigger.right, DS_EFFECT_PAYLOAD_SIZE);
         queuedCb->typeIndex = IDX_DS_ADAPTIVE_TRIGGERS;
+    }
+    else if (ctlHdr->type == SS_STREAM_ENDED_PTYPE) {
+        BbGet32(&bb, &queuedCb->data.streamEnded.streamIndex);
+        BbGet32(&bb, &queuedCb->data.streamEnded.reason);
+        queuedCb->typeIndex = IDX_STREAM_ENDED;
     }
     else {
         // Unhandled packet type from needsAsyncCallback()
@@ -1555,6 +1573,40 @@ static void requestInvalidateReferenceFrames(uint32_t startFrame, uint32_t endFr
     }
 
     Limelog("Invalidate reference frame request sent (%d to %d)\n", startFrame, endFrame);
+}
+
+// Control messages for a video stream other than the first. They go out right away and do not wait for a reply,
+// so they are safe to send from the video receive thread.
+void requestIdrFrameForStreamIndex(int streamIndex) {
+    uint32_t payload = LE32((uint32_t)streamIndex);
+
+    if (!sendMessageAndForget(SS_IDR_STREAM_PTYPE,
+                              sizeof(payload),
+                              &payload,
+                              CTRL_CHANNEL_URGENT,
+                              ENET_PACKET_FLAG_RELIABLE,
+                              false)) {
+        Limelog("Video stream %d IDR request: transaction failed: %d\n", streamIndex, (int)LastSocketError());
+        return;
+    }
+
+    Limelog("IDR frame request for video stream %d sent\n", streamIndex);
+}
+
+void requestInvalidateReferenceFramesForStreamIndex(int streamIndex, uint32_t startFrame, uint32_t endFrame) {
+    uint32_t payload[3] = { LE32((uint32_t)streamIndex), LE32(startFrame), LE32(endFrame) };
+
+    if (!sendMessageAndForget(SS_RFI_STREAM_PTYPE,
+                              sizeof(payload),
+                              payload,
+                              CTRL_CHANNEL_URGENT,
+                              ENET_PACKET_FLAG_RELIABLE,
+                              false)) {
+        Limelog("Video stream %d reference frame invalidation: transaction failed: %d\n", streamIndex, (int)LastSocketError());
+        return;
+    }
+
+    Limelog("Reference frame invalidation for video stream %d sent (%u to %u)\n", streamIndex, startFrame, endFrame);
 }
 
 static void confirmLongtermReferenceFrame(uint32_t frameIndex) {

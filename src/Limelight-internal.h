@@ -153,6 +153,11 @@ bool waitForNextVideoFrame(PVIDEO_DEPACKETIZER d, VIDEO_FRAME_HANDLE* frameHandl
 void requestDecoderRefresh(PVIDEO_DEPACKETIZER d);
 void notifyFrameLost(PVIDEO_DEPACKETIZER d, unsigned int frameNumber, bool speculative);
 
+// Control messages for a video stream other than the first (0 = the first stream)
+void notifyVideoStreamEnded(int streamIndex);
+void requestIdrFrameForStreamIndex(int streamIndex);
+void requestInvalidateReferenceFramesForStreamIndex(int streamIndex, uint32_t startFrame, uint32_t endFrame);
+
 void initializeVideoStream(void);
 void destroyVideoStream(void);
 void notifyKeyFrameReceived(int streamIndex);

@@ -45,17 +45,23 @@ PVIDEO_DEPACKETIZER getVideoDepacketizer(int streamIndex) {
     return &videoDepacketizers[streamIndex];
 }
 
-// Only the first stream may talk to the host on the control stream: the host applies those requests to its
-// first stream, so a second stream would corrupt it. Stream-scoped requests come later.
+// The first stream uses the original control requests, which the host applies to its first stream. Other streams
+// use the stream-scoped ones so they can never reset the first.
 static void requestIdrFrameForStream(PVIDEO_DEPACKETIZER d) {
     if (d->streamIndex == 0) {
         LiRequestIdrFrame();
+    }
+    else {
+        requestIdrFrameForStreamIndex(d->streamIndex);
     }
 }
 
 static void reportFrameLossForStream(PVIDEO_DEPACKETIZER d, uint32_t startFrame, uint32_t endFrame) {
     if (d->streamIndex == 0) {
         connectionDetectedFrameLoss(startFrame, endFrame);
+    }
+    else {
+        requestInvalidateReferenceFramesForStreamIndex(d->streamIndex, startFrame, endFrame);
     }
 }
 
