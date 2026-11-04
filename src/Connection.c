@@ -271,6 +271,12 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
     memcpy(&VideoCallbacks, drCallbacks, sizeof(VideoCallbacks));
     memcpy(&AudioCallbacks, arCallbacks, sizeof(AudioCallbacks));
 
+    // The second video stream takes the same placeholders for the callbacks its renderer left empty
+    if (HasVideoCallbacks2) {
+        PDECODER_RENDERER_CALLBACKS secondCallbacks = &VideoCallbacks2;
+        fixupMissingCallbacks(&secondCallbacks, &arCallbacks, &clCallbacks);
+    }
+
 #ifdef LC_DEBUG_RECORD_MODE
     // Install the pass-through recorder callbacks
     setRecorderCallbacks(&VideoCallbacks, &AudioCallbacks);
