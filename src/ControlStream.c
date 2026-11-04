@@ -426,30 +426,6 @@ void LiRequestIdrFrame(void) {
     PltSetEvent(&idrFrameRequiredEvent);
 }
 
-// Tells the host to stop sending one video stream other than the first, for example when its window was closed.
-// The connection and the other streams carry on.
-void LiStopVideoStream(int streamIndex) {
-    uint32_t payload = LE32((uint32_t)streamIndex);
-
-    if (streamIndex <= 0 || streamIndex >= MAX_VIDEO_STREAMS) {
-        return;
-    }
-
-    if (!sendMessageAndForget(SS_STOP_STREAM_PTYPE,
-                              sizeof(payload),
-                              &payload,
-                              CTRL_CHANNEL_URGENT,
-                              ENET_PACKET_FLAG_RELIABLE,
-                              false)) {
-        Limelog("Video stream %d stop request: transaction failed: %d
-", streamIndex, (int)LastSocketError());
-        return;
-    }
-
-    Limelog("Stop request for video stream %d sent
-", streamIndex);
-}
-
 void LiRequestIdrFrameForStream(int streamIndex) {
     if (streamIndex == 0) {
         LiRequestIdrFrame();
@@ -1624,6 +1600,28 @@ void requestIdrFrameForStreamIndex(int streamIndex) {
     }
 
     Limelog("IDR frame request for video stream %d sent\n", streamIndex);
+}
+
+// Tells the host to stop sending one video stream other than the first, for example when its window was closed.
+// The connection and the other streams carry on.
+void LiStopVideoStream(int streamIndex) {
+    uint32_t payload = LE32((uint32_t)streamIndex);
+
+    if (streamIndex <= 0 || streamIndex >= MAX_VIDEO_STREAMS) {
+        return;
+    }
+
+    if (!sendMessageAndForget(SS_STOP_STREAM_PTYPE,
+                              sizeof(payload),
+                              &payload,
+                              CTRL_CHANNEL_URGENT,
+                              ENET_PACKET_FLAG_RELIABLE,
+                              false)) {
+        Limelog("Video stream %d stop request: transaction failed: %d\n", streamIndex, (int)LastSocketError());
+        return;
+    }
+
+    Limelog("Stop request for video stream %d sent\n", streamIndex);
 }
 
 void requestInvalidateReferenceFramesForStreamIndex(int streamIndex, uint32_t startFrame, uint32_t endFrame) {
