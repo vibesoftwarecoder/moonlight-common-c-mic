@@ -80,6 +80,7 @@ typedef struct _SS_FRAME_FEC_STATUS {
 #define SS_IDR_STREAM_PTYPE 0x3100
 #define SS_RFI_STREAM_PTYPE 0x3101
 #define SS_STREAM_ENDED_PTYPE 0x3102
+#define SS_STOP_STREAM_PTYPE 0x3103
 typedef struct _SS_LTR_FRAME_ACK {
     uint32_t frameIndex;
     uint32_t reserved;
