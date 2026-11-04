@@ -142,14 +142,23 @@ void initializeVideoDepacketizer(PVIDEO_DEPACKETIZER d, int streamIndex, int pkt
 void destroyVideoDepacketizer(PVIDEO_DEPACKETIZER d);
 void queueRtpPacket(PVIDEO_DEPACKETIZER d, PRTPV_QUEUE_ENTRY queueEntry);
 void stopVideoDepacketizer(PVIDEO_DEPACKETIZER d);
+bool waitForNextVideoFrame(PVIDEO_DEPACKETIZER d, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit);
 void requestDecoderRefresh(PVIDEO_DEPACKETIZER d);
 void notifyFrameLost(PVIDEO_DEPACKETIZER d, unsigned int frameNumber, bool speculative);
 
 void initializeVideoStream(void);
 void destroyVideoStream(void);
-void notifyKeyFrameReceived(void);
+void notifyKeyFrameReceived(int streamIndex);
 int startVideoStream(void* rendererContext, int drFlags);
 void stopVideoStream(void);
+
+// The same operations for any video stream (0 = the first). A stream other than 0 needs setVideoStreamParams() first.
+void setVideoStreamParams(int streamIndex, const DECODER_RENDERER_CALLBACKS* callbacks, int width, int height, int fps,
+                          uint16_t port, PSS_PING pingPayload);
+void initializeVideoStreamInstance(int streamIndex);
+void destroyVideoStreamInstance(int streamIndex);
+int startVideoStreamInstance(int streamIndex, void* rendererContext, int drFlags);
+void stopVideoStreamInstance(int streamIndex);
 
 int initializeAudioStream(void);
 int notifyAudioPortNegotiationComplete(void);

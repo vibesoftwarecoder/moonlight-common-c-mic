@@ -262,8 +262,8 @@ void validateDecodeUnitForPlayback(PDECODE_UNIT decodeUnit) {
     }
 }
 
-bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
-    PVIDEO_DEPACKETIZER d = getVideoDepacketizer(0);
+// Wait for the next frame of one stream
+bool waitForNextVideoFrame(PVIDEO_DEPACKETIZER d, VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
     PQUEUED_DECODE_UNIT qdu;
 
     int err = LbqWaitForQueueElement(&d->decodeUnitQueue, (void**)&qdu);
@@ -276,6 +276,10 @@ bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* deco
     *frameHandle = qdu;
     *decodeUnit = &qdu->decodeUnit;
     return true;
+}
+
+bool LiWaitForNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
+    return waitForNextVideoFrame(getVideoDepacketizer(0), frameHandle, decodeUnit);
 }
 
 bool LiPollNextVideoFrame(VIDEO_FRAME_HANDLE* frameHandle, PDECODE_UNIT* decodeUnit) {
@@ -535,7 +539,7 @@ static void reassembleFrame(PVIDEO_DEPACKETIZER d, int frameNumber, bool frameIs
             // Invoke the key frame callback if needed
             if (d->nalChainHead->bufferType != BUFFER_TYPE_PICDATA || qdu->decodeUnit.frameType == FRAME_TYPE_IDR) {
                 qdu->decodeUnit.frameType = FRAME_TYPE_IDR;
-                notifyKeyFrameReceived();
+                notifyKeyFrameReceived(d->streamIndex);
             }
             else {
                 qdu->decodeUnit.frameType = FRAME_TYPE_PFRAME;
