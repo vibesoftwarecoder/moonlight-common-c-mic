@@ -426,6 +426,15 @@ void LiRequestIdrFrame(void) {
     PltSetEvent(&idrFrameRequiredEvent);
 }
 
+void LiRequestIdrFrameForStream(int streamIndex) {
+    if (streamIndex == 0) {
+        LiRequestIdrFrame();
+    }
+    else if (streamIndex > 0 && streamIndex < MAX_VIDEO_STREAMS) {
+        requestIdrFrameForStreamIndex(streamIndex);
+    }
+}
+
 // Invalidate reference frames lost by the network
 void connectionDetectedFrameLoss(uint32_t startFrame, uint32_t endFrame) {
     queueFrameInvalidationTuple(startFrame, endFrame);
