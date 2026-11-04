@@ -36,8 +36,8 @@ static bool receivedFullFrame;
 
 // Initialize the video stream
 void initializeVideoStream(void) {
-    initializeVideoDepacketizer(StreamConfig.packetSize);
-    RtpvInitializeQueue(&rtpQueue);
+    initializeVideoDepacketizer(getVideoDepacketizer(0), 0, StreamConfig.packetSize);
+    RtpvInitializeQueue(&rtpQueue, getVideoDepacketizer(0), 0);
     decryptionCtx = PltCreateCryptoContext();
     receivedDataFromPeer = false;
     firstDataTimeMs = 0;
@@ -47,7 +47,7 @@ void initializeVideoStream(void) {
 // Clean up the video stream
 void destroyVideoStream(void) {
     PltDestroyCryptoContext(decryptionCtx);
-    destroyVideoDepacketizer();
+    destroyVideoDepacketizer(getVideoDepacketizer(0));
     RtpvCleanupQueue(&rtpQueue);
 }
 
@@ -283,7 +283,7 @@ void stopVideoStream(void) {
     VideoCallbacks.stop();
 
     // Wake up client code that may be waiting on the decode unit queue
-    stopVideoDepacketizer();
+    stopVideoDepacketizer(getVideoDepacketizer(0));
 
     PltInterruptThread(&udpPingThread);
     PltInterruptThread(&receiveThread);
@@ -364,7 +364,7 @@ int startVideoStream(void* rendererContext, int drFlags) {
                                             FIRST_FRAME_PORT, FIRST_FRAME_TIMEOUT_SEC);
         if (firstFrameSocket == INVALID_SOCKET) {
             VideoCallbacks.stop();
-            stopVideoDepacketizer();
+            stopVideoDepacketizer(getVideoDepacketizer(0));
             PltInterruptThread(&receiveThread);
             if ((VideoCallbacks.capabilities & (CAPABILITY_DIRECT_SUBMIT | CAPABILITY_PULL_RENDERER)) == 0) {
                 PltInterruptThread(&decoderThread);
@@ -384,7 +384,7 @@ int startVideoStream(void* rendererContext, int drFlags) {
     err = PltCreateThread("VideoPing", VideoPingThreadProc, NULL, &udpPingThread);
     if (err != 0) {
         VideoCallbacks.stop();
-        stopVideoDepacketizer();
+        stopVideoDepacketizer(getVideoDepacketizer(0));
         PltInterruptThread(&receiveThread);
         if ((VideoCallbacks.capabilities & (CAPABILITY_DIRECT_SUBMIT | CAPABILITY_PULL_RENDERER)) == 0) {
             PltInterruptThread(&decoderThread);

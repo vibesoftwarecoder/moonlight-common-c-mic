@@ -2,9 +2,13 @@
 
 #include "LinkedBlockingQueue.h"
 
+// The per-stream depacketizer state; defined in VideoDepacketizer.c.
+typedef struct _VIDEO_DEPACKETIZER VIDEO_DEPACKETIZER, *PVIDEO_DEPACKETIZER;
+
 typedef struct _QUEUED_DECODE_UNIT {
     DECODE_UNIT decodeUnit;
     LINKED_BLOCKING_QUEUE_ENTRY entry;
+    PVIDEO_DEPACKETIZER owner;
 } QUEUED_DECODE_UNIT, *PQUEUED_DECODE_UNIT;
 
 #pragma pack(push, 1)

@@ -134,12 +134,16 @@ bool isControlDataInTransit(void);
 
 int performRtspHandshake(PSERVER_INFORMATION serverInfo);
 
-void initializeVideoDepacketizer(int pktSize);
-void destroyVideoDepacketizer(void);
-void queueRtpPacket(PRTPV_QUEUE_ENTRY queueEntry);
-void stopVideoDepacketizer(void);
-void requestDecoderRefresh(void);
-void notifyFrameLost(unsigned int frameNumber, bool speculative);
+#define MAX_VIDEO_STREAMS 2
+
+// The depacketizer of one video stream (0 = the first). Streams other than 0 do not send control requests yet.
+PVIDEO_DEPACKETIZER getVideoDepacketizer(int streamIndex);
+void initializeVideoDepacketizer(PVIDEO_DEPACKETIZER d, int streamIndex, int pktSize);
+void destroyVideoDepacketizer(PVIDEO_DEPACKETIZER d);
+void queueRtpPacket(PVIDEO_DEPACKETIZER d, PRTPV_QUEUE_ENTRY queueEntry);
+void stopVideoDepacketizer(PVIDEO_DEPACKETIZER d);
+void requestDecoderRefresh(PVIDEO_DEPACKETIZER d);
+void notifyFrameLost(PVIDEO_DEPACKETIZER d, unsigned int frameNumber, bool speculative);
 
 void initializeVideoStream(void);
 void destroyVideoStream(void);

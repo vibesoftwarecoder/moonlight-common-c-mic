@@ -20,6 +20,9 @@ typedef struct _RTPV_QUEUE_LIST {
 } RTPV_QUEUE_LIST, *PRTPV_QUEUE_LIST;
 
 typedef struct _RTP_VIDEO_QUEUE {
+    PVIDEO_DEPACKETIZER depacketizer;
+    int streamIndex;
+
     RTPV_QUEUE_LIST pendingFecBlockList;
     RTPV_QUEUE_LIST completedFecBlockList;
 
@@ -53,7 +56,7 @@ typedef struct _RTP_VIDEO_QUEUE {
 #define RTPF_RET_QUEUED    0
 #define RTPF_RET_REJECTED  1
 
-void RtpvInitializeQueue(PRTP_VIDEO_QUEUE queue);
+void RtpvInitializeQueue(PRTP_VIDEO_QUEUE queue, PVIDEO_DEPACKETIZER depacketizer, int streamIndex);
 void RtpvCleanupQueue(PRTP_VIDEO_QUEUE queue);
 int RtpvAddPacket(PRTP_VIDEO_QUEUE queue, PRTP_PACKET packet, int length, PRTPV_QUEUE_ENTRY packetEntry);
 uint32_t RtpvGetCurrentFrameNumber(PRTP_VIDEO_QUEUE queue);
