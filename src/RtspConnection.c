@@ -945,6 +945,7 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
     int ret;
     bool hostSupportsMic = false;
     bool hostSupportsSecondVideo = false;
+    bool hostSupportsSecondDisplay = false;
 
     LC_ASSERT(RtspPortNumber != 0);
 
@@ -1174,6 +1175,14 @@ int performRtspHandshake(PSERVER_INFORMATION serverInfo) {
         }
         if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo && !HasVideoCallbacks2) {
             Limelog("No decoder callbacks were set for the second video stream; continuing with one\n");
+        }
+
+        // A whole display as the second stream (source "display:...") is only offered where the host can make one
+        hostSupportsSecondDisplay = strstr(response.payload, "a=x-ss-video[1].display:1") != NULL;
+        if (StreamConfig.enableSecondVideoStream && hostSupportsSecondVideo &&
+                strncmp(StreamConfig.secondVideoSource, "display:", 8) == 0 && !hostSupportsSecondDisplay) {
+            Limelog("Host cannot make a display for the second video stream; continuing with one\n");
+            hostSupportsSecondVideo = false;
         }
 
         // Parse the Opus surround parameters out of the RTSP DESCRIBE response.
