@@ -22,7 +22,7 @@ typedef struct _VIDEO_STREAM {
     PLT_THREAD receiveThread;
     PLT_THREAD decoderThread;
 
-    bool receivedDataFromPeer;
+    atomic_bool receivedDataFromPeer; // Read by stopVideoStreamInstance()
     uint64_t firstDataTimeMs;
     bool receivedFullFrame;
 
@@ -74,8 +74,8 @@ void initializeVideoStreamInstance(int streamIndex) {
 
     initializeVideoDepacketizer(getVideoDepacketizer(streamIndex), streamIndex, StreamConfig.packetSize);
     RtpvInitializeQueue(&s->rtpQueue, getVideoDepacketizer(streamIndex), streamIndex);
-    s->decryptionCtx = PltCreateCryptoContext();
-    s->receivedDataFromPeer = false;
+    s->decryptionCtx = PltCreateCryptoContext(0);
+    atomic_store_explicit(&s->receivedDataFromPeer, false, memory_order_relaxed);
     s->firstDataTimeMs = 0;
     s->receivedFullFrame = false;
 }
@@ -198,14 +198,16 @@ static void VideoReceiveThreadProc(void* context) {
         err = recvUdpSocket(s->rtpSocket,
                             encrypted ? encryptedBuffer : buffer,
                             receiveSize,
-                            useSelect);
+                            useSelect,
+                            NULL,
+                            NULL);
         if (err < 0) {
             Limelog("Video Receive: recvUdpSocket() failed: %d\n", (int)LastSocketError());
             terminateVideoStream(s, LastSocketFail());
             break;
         }
         else if  (err == 0) {
-            if (!s->receivedDataFromPeer) {
+            if (!atomic_load_explicit(&s->receivedDataFromPeer, memory_order_relaxed)) {
                 // If we wait many seconds without ever receiving a video packet,
                 // assume something is broken and terminate the connection.
                 waitingForVideoMs += UDP_RECV_POLL_TIMEOUT_MS;
@@ -220,8 +222,7 @@ static void VideoReceiveThreadProc(void* context) {
             continue;
         }
 
-        if (!s->receivedDataFromPeer) {
-            s->receivedDataFromPeer = true;
+        if (!atomic_exchange_explicit(&s->receivedDataFromPeer, true, memory_order_relaxed)) {
             Limelog("Received first video packet after %d ms\n", waitingForVideoMs);
 
             s->firstDataTimeMs = PltGetMillis();
@@ -271,7 +272,8 @@ static void VideoReceiveThreadProc(void* context) {
                 continue;
             }
 
-            if (!PltDecryptMessage(s->decryptionCtx, ALGORITHM_AES_GCM, 0,
+            // Replay detection is handled by the check above and in the RtpFecQueue
+            if (!PltDecryptMessage(s->decryptionCtx, ALGORITHM_AES_GCM, CIPHER_FLAG_NO_REPLAY_CHECK, 0, 0,
                                    (unsigned char*)StreamConfig.remoteInputAesKey, sizeof(StreamConfig.remoteInputAesKey),
                                    encHeader->iv, sizeof(encHeader->iv),
                                    encHeader->tag, sizeof(encHeader->tag),
@@ -346,7 +348,7 @@ static bool needsDecoderThread(PVIDEO_STREAM s) {
 void stopVideoStreamInstance(int streamIndex) {
     PVIDEO_STREAM s = &videoStreams[streamIndex];
 
-    if (!s->receivedDataFromPeer) {
+    if (!atomic_load_explicit(&s->receivedDataFromPeer, memory_order_relaxed)) {
         Limelog("No video traffic was ever received from the host!\n");
     }
 
@@ -504,8 +506,8 @@ int startVideoStream(void* rendererContext, int drFlags) {
     return startVideoStreamInstance(0, rendererContext, drFlags);
 }
 
-const RTP_VIDEO_STATS* LiGetRTPVideoStats(void) {
-    return &videoStreams[0].rtpQueue.stats;
+void LiGetRTPVideoStats(PRTP_VIDEO_STATS stats) {
+    RtpvGetStats(&videoStreams[0].rtpQueue, stats);
 }
 
 // The host ended a video stream other than the first. Wake anyone waiting for its frames and stop treating it as

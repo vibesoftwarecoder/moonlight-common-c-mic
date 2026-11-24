@@ -26,7 +26,7 @@ int initializeMicrophoneStream(void) {
         return 0;
     }
 
-    micEncryptionCtx = PltCreateCryptoContext();
+    micEncryptionCtx = PltCreateCryptoContext(0);
     if (micEncryptionCtx == NULL) {
         return -1;
     }
